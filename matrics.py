@@ -155,7 +155,7 @@ def main():
         if i!=config.exchangeBuy:
             getProfitByExchange(config.exchangeBuy, i, tradeList, config.baseCurrency[config.exchangeBuy], config.baseCurrency[i])
 #main()
-
+'''
 if config.isDebug:
     main()
 else:
@@ -166,3 +166,105 @@ else:
         except KeyboardInterrupt:
             print('Closed.....')
             break
+'''
+
+for i in config.pair:
+    print(i)
+    for j in config.exchanges:
+        try:
+            tickerCode = ''
+            buyPrice   = ''
+            #Create Ticker Code
+            if j == 'rekeningku':
+                tickerCode = config.rekeningkuTrade[i]
+            elif j == 'gate':
+                tickerCode = i+'_'+config.baseCurrency[j]
+            elif j == 'okex':
+                tickerCode = i+'-'+config.baseCurrency[j]+'/ticker'
+            else:
+                tickerCode = i+config.baseCurrency[j]
+
+            #Lowercase API Checker
+            if config.isLower[j]==True:
+                tickerCode = tickerCode.lower()
+   
+            ticker = requests.get(config.tickerAPI[j]+tickerCode).json()
+            try: 
+                if j == 'indodax':
+                    buyPrice    = float(ticker['ticker']['sell'])/indodaxUSDT
+                elif j == 'rekeningku':
+                    buyPrice    = float(ticker[config.priceKey[j]])
+                elif j == 'bitmart':
+                    buyPrice    = float(ticker['data']['tickers'][0])
+                else:
+                    buyPrice = float(ticker[config.priceKey[j]])
+            except (IndexError, KeyError, TypeError):
+                buyPrice = -1000
+                
+            if buyPrice != -1000:
+                print('%10s  $%.5f'%(j.upper(),buyPrice))
+        except requests.exceptions.Timeout:
+            #Maybe set up for a retry, or continue in a retry loop
+            print('Timeout.....')
+        except requests.exceptions.TooManyRedirects:
+            #Tell the user their URL was bad and try a different one
+            print('Too many redirect....')
+        except requests.exceptions.RequestException as e:
+            #catastrophic error. bail.
+            raise SystemExit(e)
+    print()
+
+                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
