@@ -15,19 +15,27 @@ def getProfitByExchange(exchangeBuy, exchangeSell, tradeList, baseCurrencyBuy, b
     pairList = getPairList(exchangeSell, tradeList)
     
     for i in pairList:
+        #Timeout Set
+        if config.isTimeOut == True:
+            time.sleep(config.timeout)
+        
         #Buy Code Checker
         if exchangeBuy == 'rekeningku':
-            buyCode = str(parlist[i])
+            buyCode = config.rekeningkuTrade[i]
         elif exchangeBuy == 'gate':
             buyCode = i+'_'+baseCurrencyBuy
+        elif exchangeBuy == 'okex':
+            buyCode = i+'-'+baseCurrencyBuy+'/ticker'
         else:
             buyCode = i+baseCurrencyBuy
 
         #Sell Code Checker
         if exchangeSell == 'rekeningku':
             sellCode = str(pairList[i])
-        elif exchangeSell == 'gate':
+        elif exchangeSell == 'gate' or exchangeSell == 'bitmart':
             sellCode = i+'_'+baseCurrencySell
+        elif exchangeSell == 'okex':
+            sellCode = i+'-'+baseCurrencySell+'/ticker'
         else:
             sellCode = i+baseCurrencySell
 
@@ -42,6 +50,10 @@ def getProfitByExchange(exchangeBuy, exchangeSell, tradeList, baseCurrencyBuy, b
             buyPrice    = float(requests.get(config.tickerAPI[exchangeBuy]+buyCode).json()['ticker']['sell'])/indodaxUSDT
         elif exchangeBuy == 'rekeningku':
             buyPrice    = float(requests.get(config.tickerAPI[exchangeBuy]+buyCode).json()[config.priceKey[exchangeBuy]])/rekeningkuUSDT
+        elif exchangeBuy == 'bitmart':
+            buyPrice    = float(requests.get(config.tickerAPI[exchangeBuy]+buyCode).json()['data']['tickers'][0])
+        elif exchangeBuy == 'okex':
+            buyPrice    = float(requests.get(config.tickerAPI[exchangeBuy]+buyCode).json()[config.priceKey[exchangeBuy]])
         else:
             try:
                 buyPrice = float(requests.get(config.tickerAPI[exchangeBuy]+buyCode).json()[config.priceKey[exchangeBuy]])
@@ -55,14 +67,17 @@ def getProfitByExchange(exchangeBuy, exchangeSell, tradeList, baseCurrencyBuy, b
             sellPrice   = float(requests.get(config.tickerAPI[exchangeSell]+sellCode).json()['ticker']['buy'])/indodaxUSDT
         elif exchangeSell == 'rekeningku':
             sellPrice   = float(requests.get(config.tickerAPI[exchangeSell]+sellCode).json()[config.priceKey[exchangeSell]])/rekeningkuUSDT
+        elif exchangeSell == 'bitmart':
+            sellPrice   = float(requests.get(config.tickerAPI[exchangeSell]+sellCode).json()['data']['tickers'][0]['last_price'])
+        elif exchangeSell == 'okex':
+            sellPrice   = float(requests.get(config.tickerAPI[exchangeSell]+sellCode).json()[config.priceKey[exchangeSell]])
         else:
-            print(requests.get(config.tickerAPI[exchangeSell]+sellCode).json(),exchangeSell,sellCode)
             sellPrice   = float(requests.get(config.tickerAPI[exchangeSell]+sellCode).json()[config.priceKey[exchangeSell]])
             
         percentage = (sellPrice - buyPrice) / buyPrice * 100
         #print(exchangeBuy,exchangeSell,buyCode,sellCode,buyPrice,sellPrice)
         if config.isFiltered:
-            if percentage > 1:
+            if abs(percentage) > config.profitTracehold:
                 print(i.upper(),'\t',"$%.5f"%buyPrice,'\t$%.5f'%sellPrice,'\t%.2f'%percentage,'%')
         else:
             if buyPrice != -1000:
@@ -86,7 +101,7 @@ def getPairList(exchangeSell, tradeList):
             code = i['accountcode']
             if (code in tradeList and code not in config.suspendList):
                 pairs.update({i['accountcode']: i['id']})
-
+            
     elif exchangeSell == 'luno':
         for i in res['tickers']:
             if i['pair'].find(config.baseCurrency[exchangeSell]) != -1:
@@ -101,11 +116,25 @@ def getPairList(exchangeSell, tradeList):
                 if (code in tradeList and code not in config.suspendList):
                     pairs.append(code)
 
+    elif exchangeSell == 'bitmart':
+        for i in res['data']['symbols']:
+            if i.find(config.baseCurrency[exchangeSell]) > 0:
+                code = re.sub('_'+config.baseCurrency[exchangeSell],'',i).upper()
+                if (code in tradeList and code not in config.suspendList):
+                    pairs.append(code)
+
+    elif exchangeSell == 'okex':
+        for i in res:
+            if i['instrument_id'].find(config.baseCurrency[exchangeSell]) > 0:
+                code = i['base_currency']
+                if (code in tradeList and code not in config.suspendList):
+                    pairs.append(code)
+
     else:
         for i in res:
-            if i['symbol'].find(baseCurrency[exchangeSell]) != -1:
-                code = re.sub(baseCurrency[exchangeSell],'',i['symbol']).upper()
-                if (code in tradeList and code not in suspendList):
+            if i['symbol'].find(config.baseCurrency[exchangeSell]) != -1:
+                code = re.sub(config.baseCurrency[exchangeSell],'',i['symbol']).upper()
+                if (code in tradeList and code not in config.suspendList):
                     pairs.append(code)           
     return pairs
     
@@ -115,8 +144,12 @@ def main():
         tradeList = config.binance
     elif config.exchangeBuy == 'indodax':
         tradeList = config.indodax
-    elif exchangeBuy == 'bitfinex':
+    elif config.exchangeBuy == 'bitfinex':
         tradeList = config.bitfinex
+    elif config.exchangeBuy == 'bhex':
+        tradeList = config.bhex
+    elif config.exchangeBuy == 'rekeningku':
+        tradeList = config.rekeningku
 
     for i in config.exchanges:
         if i!=config.exchangeBuy:
@@ -129,7 +162,7 @@ else:
     while 1==1:
         try:     
             main()
-            time.sleep(5)
+            time.sleep(10)
         except KeyboardInterrupt:
             print('Closed.....')
             break
